@@ -25,6 +25,8 @@ def train_dp():
                         help="Name of the experiment, also the log file and checkpoint directory. If 'debug', checkpoints won't be saved")
     parser.add_argument('-l', '--lr', default=0.0001, help="Initial learning rate")
     parser.add_argument('-b', '--batch_size', default=6, help="Batch size")
+    parser.add_argument('-s', '--sample_size', default=4471, help="Sample size")
+
     parser.add_argument('-p', '--path', help="If set, load model from the given path")
     parser.add_argument('-e', '--epochs', default=200, help="Num of epochs")
     parser.add_argument('-t', '--train_data', default='../dataset/lpd_5_prcem_mix_v8_10000.npz',
@@ -42,6 +44,8 @@ def train_dp():
     init_lr = float(args.lr)
 
     batch_size = int(args.batch_size)
+    sample_size = int(args.sample_size)
+
 
     DEBUG = args.name == "debug"
 
@@ -65,13 +69,13 @@ def train_dp():
     # config
     train_data = np.load(path_train_data, allow_pickle=True)
     train_x = train_data['x'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
-    train_y = train_data['y'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
-    train_mask = train_data['decoder_mask'][:, :9999]
+    # train_y = train_data['y'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
+    # train_mask = train_data['decoder_mask'][:, :9999]
 
-    metadata = train_data['metadata']
-    for i, m in enumerate(metadata):
-        total = m["de_len"] - 1
-        train_x[i, :total, 7] = train_x[i, :total, 7] + 1
+    # metadata = train_data['metadata']
+    # for i, m in enumerate(metadata):
+    #     total = m["de_len"] - 1
+    #     train_x[i, :total, 7] = train_x[i, :total, 7] + 1
 
     init_token = np.tile(np.array([
             [5, 0, 0],
@@ -81,7 +85,7 @@ def train_dp():
             [0, 0, 3],
             [0, 0, 4],
             [0, 0, 5],
-        ]), (4471, 1, 1))
+        ]), (sample_size, 1, 1))
         #mudei aqui
 
     num_batch = len(train_x) // batch_size
@@ -89,11 +93,11 @@ def train_dp():
     # create saver
     saver_agent = Saver(exp_dir="../exp/" + args.name, debug=DEBUG)
 
-    decoder_n_class = np.max(train_x, axis=(0, 1)) + 1
-    init_n_class = [7, 1, 6]
+    # decoder_n_class = np.max(train_x, axis=(0, 1)) + 1
+    # init_n_class = [7, 1, 6]
 
-    #    decoder_n_class = [18, 3, 18, 129, 18, 6, 20, 102, 5025]
-    #    init_n_class = [7, 1, 6]
+    decoder_n_class = [18, 3, 18, 110, 18, 5, 44, 101, 10845]
+    init_n_class = [7, 1, 6]
 
     # log
     log('num of encoder classes:', decoder_n_class, init_n_class)
@@ -125,9 +129,9 @@ def train_dp():
     log('    train_data:', path_train_data.split("/")[-2])
     log('    batch_size:', batch_size)
     log('    num_batch:', num_batch)
-    log('    train_x:', train_x.shape)
-    log('    train_y:', train_y.shape)
-    log('    train_mask:', train_mask.shape)
+    # log('    train_x:', train_x.shape)
+    # log('    train_y:', train_y.shape)
+    # log('    train_mask:', train_mask.shape)
     log('    lr_init:', init_lr)
     for k, v in params.items():
         log(f'    {k}: {v}')
@@ -137,10 +141,10 @@ def train_dp():
 
     device = torch.device("cuda:0" if use_cuda else "cpu")
     start_time = time.time()
-    params2 = {'batch_size': 6,
+    params2 = {'batch_size': batch_size,
           'shuffle': True,
           'num_workers': 6}
-    training_set = Dataset(range(4471), init_token)
+    training_set = Dataset(range(sample_size), init_token)
     training_generator = torch.utils.data.DataLoader(training_set, **params2)
     for epoch in range(n_epoch):
         acc_loss = 0

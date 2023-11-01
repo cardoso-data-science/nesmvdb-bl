@@ -1917,12 +1917,10 @@ preset_word2event = {
 
 init_dictionary = {
     "instr_type": {
-        'None'   : 0,
-        'Drums'  : 1,
-        'Piano'  : 2,
-        'Guitar' : 3,
-        'Bass'   : 4,
-        'Strings': 5,
+        'p1'   : 0,
+        'p2'  : 1,
+        'tr'  : 2,
+        'no' : 3,
     },
     "key"       : {
         "None": 0,
