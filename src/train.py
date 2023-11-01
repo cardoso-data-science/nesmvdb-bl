@@ -14,7 +14,7 @@ sys.path.append(".")
 import utils
 from utils import log, Saver, network_paras
 from model import CMT
-from my_classes import Dataset
+from my_classes import NESMVDBDataset
 
 
 def train_dp():
@@ -144,8 +144,10 @@ def train_dp():
     params2 = {'batch_size': batch_size,
           'shuffle': True,
           'num_workers': 6}
-    training_set = Dataset(range(sample_size), init_token)
+    
+    training_set = NESMVDBDataset(range(sample_size), init_token)
     training_generator = torch.utils.data.DataLoader(training_set, **params2)
+    
     for epoch in range(n_epoch):
         acc_loss = 0
         acc_losses = np.zeros(7)
@@ -155,7 +157,7 @@ def train_dp():
             for p in optimizer.param_groups:
                 p['lr'] *= params['DECAY_RATIO']
 
-        for bidx, local_labels, batch_mask, batch_init in training_generator:  # num_batch
+        for bidx, (local_x, local_labels, batch_mask, batch_init) in enumerate(training_generator):  # num_batch
             # saver_agent.global_step_increment()
 
             # # index
@@ -183,7 +185,7 @@ def train_dp():
             # print(local_labels.shape)
             # print(batch_mask.shape)
             # print(batch_init.shape)
-            batch_x, batch_y, batch_mask, batch_init = bidx.to(device), local_labels.to(device), batch_mask.to(device), batch_init.to(device)
+            batch_x, batch_y, batch_mask, batch_init = local_x.to(device), local_labels.to(device), batch_mask.to(device), batch_init.to(device)
             # run
             losses = net(is_train=True, x=batch_x, target=batch_y, loss_mask=batch_mask, init_token=batch_init)
             losses = [l.sum() for l in losses]

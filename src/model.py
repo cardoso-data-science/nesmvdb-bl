@@ -8,8 +8,8 @@ from utils import Embeddings, BeatPositionalEncoding
 from fast_transformers.builders import TransformerEncoderBuilder
 from fast_transformers.masking import TriangularCausalMask
 
-D_MODEL = 512
-N_LAYER_ENCODER = 12
+D_MODEL = 256
+N_LAYER_ENCODER = 8
 N_HEAD = 8
 
 ATTN_DECODER = "causal-linear"

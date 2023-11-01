@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import pickle
 
-class Dataset(torch.utils.data.Dataset):
+class NESMVDBDataset(torch.utils.data.Dataset):
   'Characterizes a dataset for PyTorch'
   def __init__(self, list_IDs, init_token):
         'Initialization'
