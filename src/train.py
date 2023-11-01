@@ -67,8 +67,8 @@ def train_dp():
     max_grad_norm = 3
 
     # config
-    train_data = np.load(path_train_data, allow_pickle=True)
-    train_x = train_data['x'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
+    # train_data = np.load(path_train_data, allow_pickle=True)
+    # train_x = train_data['x'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
     # train_y = train_data['y'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
     # train_mask = train_data['decoder_mask'][:, :9999]
 
@@ -88,7 +88,7 @@ def train_dp():
         ]), (sample_size, 1, 1))
         #mudei aqui
 
-    num_batch = len(train_x) // batch_size
+    num_batch = sample_size // batch_size
 
     # create saver
     saver_agent = Saver(exp_dir="../exp/" + args.name, debug=DEBUG)
