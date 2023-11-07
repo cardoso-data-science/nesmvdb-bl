@@ -1357,12 +1357,10 @@ preset_word2event = {
         3: "Seg",
     },
     "instr_type": {
-        0: 'None',
-        1: 'Drums',
-        2: 'Piano',
-        3: 'Guitar',
-        4: 'Bass',
-        5: 'Strings',
+        0: 'p1',
+        1: 'p2',
+        2: 'tr',
+        3: 'no',
     },
     "pitch"     : {
         0  : 0,

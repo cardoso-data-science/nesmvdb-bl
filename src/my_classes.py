@@ -18,7 +18,7 @@ class NESMVDBDataset(torch.utils.data.Dataset):
         'Generates one sample of data'
         # Select sample
         # Load data and get label
-        with open(f'../dataset/pkls/Baseline/{index}.pickle', 'rb') as handle:
+        with open(f'../dataset/data_train/{index}.pickle', 'rb') as handle:
             f = pickle.load(handle)
             X = f['X'].T
             y = f['y'].T

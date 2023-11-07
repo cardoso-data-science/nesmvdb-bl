@@ -44,7 +44,7 @@ def generate():
 
 
     # change this if using another training set (see the output of decoder_n_class in train.py)
-    decoder_n_class = [18, 3, 18, 129, 18, 6, 20, 102, 5025] 
+    decoder_n_class = [18, 3, 18, 110, 18, 5, 44, 101, 10845]
     init_n_token = [7, 1, 6]
 
 
