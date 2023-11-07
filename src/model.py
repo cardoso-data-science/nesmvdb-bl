@@ -9,7 +9,7 @@ from fast_transformers.builders import TransformerEncoderBuilder
 from fast_transformers.masking import TriangularCausalMask
 
 D_MODEL = 256
-N_LAYER_ENCODER = 8
+N_LAYER_ENCODER = 10
 N_HEAD = 8
 
 ATTN_DECODER = "causal-linear"
