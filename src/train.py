@@ -8,25 +8,22 @@ import numpy as np
 import torch
 from torch import optim
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import DataLoader
 
 sys.path.append(".")
 
 import utils
 from utils import log, Saver, network_paras
 from model import CMT
-from my_classes import NESMVDBDataset
 
+from nesmdb import Nesmdb
 
 def train_dp():
-    torch.set_printoptions(profile="short")
-
     parser = argparse.ArgumentParser(description="Args for training CMT")
     parser.add_argument('-n', '--name', default="debug",
                         help="Name of the experiment, also the log file and checkpoint directory. If 'debug', checkpoints won't be saved")
     parser.add_argument('-l', '--lr', default=0.0001, help="Initial learning rate")
     parser.add_argument('-b', '--batch_size', default=6, help="Batch size")
-    parser.add_argument('-s', '--sample_size', default=4471, help="Sample size")
-
     parser.add_argument('-p', '--path', help="If set, load model from the given path")
     parser.add_argument('-e', '--epochs', default=200, help="Num of epochs")
     parser.add_argument('-t', '--train_data', default='../dataset/lpd_5_prcem_mix_v8_10000.npz',
@@ -44,8 +41,6 @@ def train_dp():
     init_lr = float(args.lr)
 
     batch_size = int(args.batch_size)
-    sample_size = int(args.sample_size)
-
 
     DEBUG = args.name == "debug"
 
@@ -66,16 +61,20 @@ def train_dp():
     n_epoch = args.epochs
     max_grad_norm = 3
 
-    # config
-    # train_data = np.load(path_train_data, allow_pickle=True)
-    # train_x = train_data['x'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
-    # train_y = train_data['y'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
-    # train_mask = train_data['decoder_mask'][:, :9999]
+    nesmdb = Nesmdb(args.train_data)
+    nesmdb_loader = DataLoader(nesmdb, batch_size=batch_size, shuffle=True, drop_last=True)
+    #quit()
 
-    # metadata = train_data['metadata']
-    # for i, m in enumerate(metadata):
-    #     total = m["de_len"] - 1
-    #     train_x[i, :total, 7] = train_x[i, :total, 7] + 1
+    # config
+    #train_data = np.load(path_train_data, allow_pickle=True)
+    #train_x = train_data['x'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
+    #train_y = train_data['y'][:, :, [1, 0, 2, 3, 4, 5, 6, 9, 7]]
+    #train_mask = train_data['decoder_mask'][:, :9999]
+
+    #metadata = train_data['metadata']
+    #for i, m in enumerate(metadata):
+    #    total = m["de_len"] - 1
+    #    train_x[i, :total, 7] = train_x[i, :total, 7] + 1
 
     init_token = np.tile(np.array([
             [5, 0, 0],
@@ -85,19 +84,21 @@ def train_dp():
             [0, 0, 3],
             [0, 0, 4],
             [0, 0, 5],
-        ]), (sample_size, 1, 1))
-        #mudei aqui
+        ]), (len(nesmdb), 1, 1))
 
-    num_batch = sample_size // batch_size
+    num_batch = len(nesmdb) // batch_size
 
     # create saver
     saver_agent = Saver(exp_dir="../exp/" + args.name, debug=DEBUG)
 
-    # decoder_n_class = np.max(train_x, axis=(0, 1)) + 1
-    # init_n_class = [7, 1, 6]
-
-    decoder_n_class = [18, 3, 18, 110, 18, 5, 44, 101, 10845]
+    #decoder_n_class = np.max(train_x, axis=(0, 1)) + 1
+    #init_n_class = [7, 1, 6]
+    
+    decoder_n_class = [18, 3,  18, 114, 18, 5, 44, 102, 10845]
     init_n_class = [7, 1, 6]
+ 
+    #    decoder_n_class = [18, 3, 18, 129, 18, 6, 20, 102, 5025]
+    #    init_n_class = [7, 1, 6]
 
     # log
     log('num of encoder classes:', decoder_n_class, init_n_class)
@@ -129,25 +130,15 @@ def train_dp():
     log('    train_data:', path_train_data.split("/")[-2])
     log('    batch_size:', batch_size)
     log('    num_batch:', num_batch)
-    # log('    train_x:', train_x.shape)
-    # log('    train_y:', train_y.shape)
-    # log('    train_mask:', train_mask.shape)
+    #log('    train_x:', train_x.shape)
+    #log('    train_y:', train_y.shape)
+    #log('    train_mask:', train_mask.shape)
     log('    lr_init:', init_lr)
     for k, v in params.items():
         log(f'    {k}: {v}')
 
     # run
-    use_cuda = torch.cuda.is_available()
-
-    device = torch.device("cuda:0" if use_cuda else "cpu")
     start_time = time.time()
-    params2 = {'batch_size': batch_size,
-          'shuffle': True,
-          'num_workers': 6}
-    
-    training_set = NESMVDBDataset(range(sample_size), init_token)
-    training_generator = torch.utils.data.DataLoader(training_set, **params2)
-    
     for epoch in range(n_epoch):
         acc_loss = 0
         acc_losses = np.zeros(7)
@@ -157,35 +148,21 @@ def train_dp():
             for p in optimizer.param_groups:
                 p['lr'] *= params['DECAY_RATIO']
 
-        for bidx, (local_x, local_labels, batch_mask, batch_init) in enumerate(training_generator):  # num_batch
-            # saver_agent.global_step_increment()
+        for bidx, (batch_x, batch_y, batch_mask) in enumerate(nesmdb_loader):  # num_batch
+            saver_agent.global_step_increment()
 
-            # # index
-            # bidx_st = batch_size * bidx
-            # bidx_ed = batch_size * (bidx + 1)
+            # index
+            bidx_st = batch_size * bidx
+            bidx_ed = batch_size * (bidx + 1)
 
-            # # unpack batch data
-            # batch_x = train_x[bidx_st:bidx_ed]
-            # batch_y = train_y[bidx_st:bidx_ed]
-            # batch_mask = train_mask[bidx_st:bidx_ed]
-            # batch_init = init_token[bidx_st:bidx_ed]
+            batch_init = torch.from_numpy(init_token[bidx_st:bidx_ed]).long()
+            
+            if torch.cuda.is_available():
+                batch_x = batch_x.cuda()
+                batch_y = batch_y.cuda()
+                batch_mask = batch_mask.cuda()
+                batch_init = batch_init.cuda()
 
-            # # to tensor
-            # batch_x = torch.from_numpy(batch_x).long()
-            # batch_y = torch.from_numpy(batch_y).long()
-            # batch_mask = torch.from_numpy(batch_mask).float()
-            # batch_init = torch.from_numpy(batch_init).long()
-
-            # if torch.cuda.is_available():
-            #     batch_x = batch_x.cuda()
-            #     batch_y = batch_y.cuda()
-            #     batch_mask = batch_mask.cuda()
-            #     batch_init = batch_init.cuda()
-            # print(bidx.shape)
-            # print(local_labels.shape)
-            # print(batch_mask.shape)
-            # print(batch_init.shape)
-            batch_x, batch_y, batch_mask, batch_init = local_x.to(device), local_labels.to(device), batch_mask.to(device), batch_init.to(device)
             # run
             losses = net(is_train=True, x=batch_x, target=batch_y, loss_mask=batch_mask, init_token=batch_init)
             losses = [l.sum() for l in losses]

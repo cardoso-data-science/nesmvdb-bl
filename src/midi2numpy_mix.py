@@ -169,67 +169,95 @@ class MIDI:
 def midi2numpy(id_list: list):
     if not os.path.exists(json_dir):
         os.makedirs(json_dir)
+    
+    if not os.path.exists(np_dir):
+        os.makedirs(np_dir)
 
-    decoder = []
-    decoder_mask = []
-    metadata_list = []
-    decoder_len = []
+    print("--- Encoding midis ---")
 
+    data_max_len = 0
     for id in tqdm(id_list):
         id_filename = os.path.join(json_dir, id + '.json')
-        if os.path.exists(id_filename):
-            with open(id_filename, 'r') as f:
-                load_dict = json.load(f)
-                decoder_list = load_dict['decoder_list']
-                de_mask = load_dict['de_mask']
-                de_len = load_dict['de_len']
-                decoder_len.append(de_len)
-                metadata = load_dict['metadata']
-        else:
-
+        
+        if not os.path.exists(id_filename):
+            # Load midi
             midi = MIDI(id)
-            decoder_list, de_mask, de_len = midi.to_decoder_list()
 
-            decoder_len.append(de_len)
+            # Encode midi
+            de_list, de_mask, de_len = midi.to_decoder_list()
+    
+            # Compute max length in the dataset 
+            data_max_len = max(de_len, data_max_len) 
+            
+            # Drop pieces that are larger than the maximum allowed length 
             if de_len > DECODER_MAX_LEN:
                 continue
 
-            # Padding to MAX_LEN
-            decoder_list += [[0] * N_DECODER_DIMENSION] * (DECODER_MAX_LEN - de_len)
-            de_mask += [0] * (DECODER_MAX_LEN - de_len)
-
+            # Save encoded piece as a json file
             metadata = {'id': id, 'de_len': de_len, 'instruments': midi.instruments, 'genre': "N/A"}
-            ##### genre set to empty
-
-            dic = {'decoder_list': decoder_list, 'de_mask': de_mask, 'de_len': de_len, 'metadata': metadata}
+            
+            dic = {'decoder_list': de_list, 'de_mask': de_mask, 'de_len': de_len, 'metadata': metadata}
             with open(id_filename, 'w') as f:
                 json.dump(dic, f)
+        else:
+            with open(id_filename, 'r') as f:
+                # Compute max length in the dataset 
+                load_dict = json.load(f)
+                de_len = load_dict['de_len']
+                data_max_len = max(de_len, data_max_len) 
+    
+    print("--- Pad encoded midis ----")
+    print("data max len", data_max_len)
+    padding_len = min(data_max_len, DECODER_MAX_LEN)
 
-        decoder.append(decoder_list)
-        decoder_mask.append(de_mask)
-        metadata_list.append(metadata)
+    max_n_classes = np.zeros(N_DECODER_DIMENSION, dtype=int)
+    
+    for id in tqdm(id_list):
+        id_filename = os.path.join(json_dir, id + '.json')
+        np_filename = os.path.join(np_dir, id + '.npz')
+        
+        if os.path.exists(id_filename):
+            with open(id_filename, 'r') as f:
+                load_dict = json.load(f)
+                
+                de_list = load_dict['decoder_list']
+                de_mask = load_dict['de_mask']
+                de_len = load_dict['de_len']
+                metadata = load_dict['metadata']
+            
+            assert de_len <= DECODER_MAX_LEN
 
-    print('max decoder length: %d' % max(decoder_len))
+            # Pad sequence that is shorter than DECODER_MAX_LEN 
+            padding_size = padding_len - de_len
+            de_list += [[0] * N_DECODER_DIMENSION] * padding_size
+            de_mask += [0] * padding_size
 
-    decoder = np.asarray(decoder, dtype=int)
-    x = decoder[:, :-1]
-    y = decoder[:, 1:]
-    decoder_mask = np.asarray(decoder_mask, dtype=int)
+            # Concat all encoded midis
+            decoder = np.asarray(de_list, dtype=int)
+            decoder_mask = np.asarray(de_mask, dtype=int)
+    
+            x = decoder[:, :-1]
+            y = decoder[:, 1:]
 
-    np.savez(npz_filename, x=x, y=y, decoder_mask=decoder_mask, metadata=metadata_list)
-    print(npz_filename)
-    print('%d songs' % len(decoder))
+            print("decoder", decoder.shape)
+            print("decoder_mask", decoder_mask.shape)
+            print("x", x.shape)
+            print("y", y.shape)
 
+            decoder_n_classes = np.max(decoder, axis=0) + 1
+            max_n_classes = np.maximum(max_n_classes, decoder_n_classes)
+            print(max_n_classes)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--midi_dir", default="../../lpd_5_cleansed_midi/", required=True)
-    parser.add_argument("--out_name", default="data.npz", required=True)
+    parser.add_argument("--midi_dir",  required=True)
+    #parser.add_argument("--out_name", default="data.npz", required=True)
     args = parser.parse_args()
 
     midi_dir = args.midi_dir
-    npz_filename = os.path.join("../dataset/", args.out_name)
+    #npz_filename = os.path.join("../dataset/", args.out_name)
     json_dir = os.path.join("../dataset/json/")
+    np_dir = os.path.join("../dataset/np/")
 
     id_list = []
     for name in os.listdir(midi_dir):
