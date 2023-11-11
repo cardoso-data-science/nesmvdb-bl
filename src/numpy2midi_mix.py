@@ -4,14 +4,20 @@ import numpy as np
 from midi2numpy_mix import Note, DECODER_DIMENSION, RESOLUTION
 from dictionary_mix import preset_event2word
 
-INSTRUMENT_PROGRAM = {
-    'Drums'  : 114,
-    'Piano'  : 0,  # Acoustic Grand Piano
-    'Guitar' : 24,  # Acoustic Guitar (nylon)
-    'Bass'   : 33,  # Electric Bass (finger)
-    'Strings': 41  # Viola
-}
+#INSTRUMENT_PROGRAM = {
+#    'Drums'  : 114,
+#    'Piano'  : 0,  # Acoustic Grand Piano
+#    'Guitar' : 24,  # Acoustic Guitar (nylon)
+#    'Bass'   : 33,  # Electric Bass (finger)
+#    'Strings': 41  # Viola
+#}
 
+INSTRUMENT_PROGRAM = {
+    'p1'  : 80,
+    'p2'  : 81,
+    'tr'  : 38,
+    'no'  : 121
+}
 
 def test_numpy2midi(idx: int) -> muspy.Music:
     npz = np.load('lpd_5_ccdepr_mix_v4_10000.npz', allow_pickle=True)

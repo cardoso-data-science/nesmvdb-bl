@@ -175,7 +175,9 @@ def midi2numpy(id_list: list):
 
     print("--- Encoding midis ---")
 
-    data_max_len = 0
+    # Init array with zeros to compute decoder_n_classes
+    max_n_classes = np.zeros(N_DECODER_DIMENSION, dtype=int)
+    
     for id in tqdm(id_list):
         id_filename = os.path.join(json_dir, id + '.json')
         
@@ -201,52 +203,15 @@ def midi2numpy(id_list: list):
                 json.dump(dic, f)
         else:
             with open(id_filename, 'r') as f:
-                # Compute max length in the dataset 
                 load_dict = json.load(f)
-                de_len = load_dict['de_len']
-                data_max_len = max(de_len, data_max_len) 
-    
-    print("--- Pad encoded midis ----")
-    print("data max len", data_max_len)
-    padding_len = min(data_max_len, DECODER_MAX_LEN)
-
-    max_n_classes = np.zeros(N_DECODER_DIMENSION, dtype=int)
-    
-    for id in tqdm(id_list):
-        id_filename = os.path.join(json_dir, id + '.json')
-        np_filename = os.path.join(np_dir, id + '.npz')
-        
-        if os.path.exists(id_filename):
-            with open(id_filename, 'r') as f:
-                load_dict = json.load(f)
-                
                 de_list = load_dict['decoder_list']
-                de_mask = load_dict['de_mask']
-                de_len = load_dict['de_len']
-                metadata = load_dict['metadata']
-            
-            assert de_len <= DECODER_MAX_LEN
 
-            # Pad sequence that is shorter than DECODER_MAX_LEN 
-            padding_size = padding_len - de_len
-            de_list += [[0] * N_DECODER_DIMENSION] * padding_size
-            de_mask += [0] * padding_size
-
-            # Concat all encoded midis
-            decoder = np.asarray(de_list, dtype=int)
-            decoder_mask = np.asarray(de_mask, dtype=int)
+        # Compute decoder_n_classes
+        decoder = np.asarray(de_list, dtype=int)
+        decoder_n_classes = np.max(decoder, axis=0) + 1
+        max_n_classes = np.maximum(max_n_classes, decoder_n_classes)
     
-            x = decoder[:, :-1]
-            y = decoder[:, 1:]
-
-            print("decoder", decoder.shape)
-            print("decoder_mask", decoder_mask.shape)
-            print("x", x.shape)
-            print("y", y.shape)
-
-            decoder_n_classes = np.max(decoder, axis=0) + 1
-            max_n_classes = np.maximum(max_n_classes, decoder_n_classes)
-            print(max_n_classes)
+    print(max_n_classes)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
