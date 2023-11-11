@@ -188,9 +188,6 @@ def midi2numpy(id_list: list):
             # Encode midi
             de_list, de_mask, de_len = midi.to_decoder_list()
     
-            # Compute max length in the dataset 
-            data_max_len = max(de_len, data_max_len) 
-            
             # Drop pieces that are larger than the maximum allowed length 
             if de_len > DECODER_MAX_LEN:
                 continue
