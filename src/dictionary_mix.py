@@ -395,12 +395,12 @@ preset_event2word = {
         'Global': 3,
     },
     "instr_type": {
-        'p1'   : 0,
-        'p2'  : 1,
-        'tr'  : 2,
-        'no' : 3,
-        # 'Bass'   : 4,
-        # 'Strings': 5,
+        'None'   : 0,
+        'Drums'  : 1,
+        'Piano'  : 2,
+        'Guitar' : 3,
+        'Bass'   : 4,
+        'Strings': 5,
     },
     "key/genre" : {
         "None"      : 0,
@@ -1357,10 +1357,12 @@ preset_word2event = {
         3: "Seg",
     },
     "instr_type": {
-        0: 'p1',
-        1: 'p2',
-        2: 'tr',
-        3: 'no',
+        0: 'None',
+        1: 'Drums',
+        2: 'Piano',
+        3: 'Guitar',
+        4: 'Bass',
+        5: 'Strings',
     },
     "pitch"     : {
         0  : 0,
@@ -1915,10 +1917,12 @@ preset_word2event = {
 
 init_dictionary = {
     "instr_type": {
-        'p1'   : 0,
-        'p2'  : 1,
-        'tr'  : 2,
-        'no' : 3,
+        'None'   : 0,
+        'Drums'  : 1,
+        'Piano'  : 2,
+        'Guitar' : 3,
+        'Bass'   : 4,
+        'Strings': 5,
     },
     "key"       : {
         "None": 0,

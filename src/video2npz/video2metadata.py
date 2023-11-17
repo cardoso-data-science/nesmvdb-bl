@@ -133,6 +133,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     metadata = process_video(args.video, args)
-    with open("/metadata.json", "w") as f:
+    with open("./metadata.json", "w") as f:
         json.dump(metadata, f)
     print("saved to metadata.json")
