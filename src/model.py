@@ -8,9 +8,9 @@ from utils import Embeddings, BeatPositionalEncoding
 from fast_transformers.builders import TransformerEncoderBuilder
 from fast_transformers.masking import TriangularCausalMask
 
-D_MODEL = 256
-N_LAYER_ENCODER = 10
-N_HEAD = 8
+D_MODEL = 240
+N_LAYER_ENCODER = 8
+N_HEAD = 6
 
 ATTN_DECODER = "causal-linear"
 
@@ -54,7 +54,7 @@ def nucleus(probs, p):
     return word
 
 
-def sampling(logit, p=None, t=1.0):
+def sampling(logit, p=0.9, t=1.0):
     logit = logit.squeeze().cpu().numpy()
     probs = softmax_with_temperature(logits=logit, temperature=t)
 
@@ -279,9 +279,9 @@ class CMT(nn.Module):
         y_beat_density = self.proj_beat_density(y_)
 
         # sampling gen_cond
-        cur_word_barbeat = sampling(y_barbeat, t=1.2)
+        cur_word_barbeat = sampling(y_barbeat, t=1)
         cur_word_pitch = sampling(y_pitch, p=0.9)
-        cur_word_duration = sampling(y_duration, t=2, p=0.9)
+        cur_word_duration = sampling(y_duration, t=1, p=0.9)
         cur_word_instr = sampling(y_instr, p=0.90)
         cur_word_onset_density = sampling(y_onset_density, p=0.90)
         cur_word_beat_density = sampling(y_beat_density, p=0.90)
