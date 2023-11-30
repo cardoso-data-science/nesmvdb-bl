@@ -79,7 +79,7 @@ last dimension of input data | attribute:
 
 
 class CMT(nn.Module):
-    def __init__(self, n_token, init_n_token, is_training=True):
+    def __init__(self, n_token, init_n_token, output_size, is_training=True):
         super(CMT, self).__init__()
 
         print("D_MODEL", D_MODEL, " N_LAYER", N_LAYER_ENCODER, " N_HEAD", N_HEAD, "DECODER ATTN", ATTN_DECODER)
@@ -138,13 +138,14 @@ class CMT(nn.Module):
         self.project_concat_type = nn.Linear(self.d_model + 32, self.d_model)
 
         # individual output
-        self.proj_barbeat = nn.Linear(self.d_model, self.n_token[0])
+        self.predictor = nn.Linear(self.d_model, output_size)
+        # self.proj_barbeat = nn.Linear(self.d_model, self.n_token[0])
         self.proj_type = nn.Linear(self.d_model, self.n_token[1])
-        self.proj_beat_density = nn.Linear(self.d_model, self.n_token[2])
-        self.proj_pitch = nn.Linear(self.d_model, self.n_token[3])
-        self.proj_duration = nn.Linear(self.d_model, self.n_token[4])
-        self.proj_instr = nn.Linear(self.d_model, self.n_token[5])
-        self.proj_onset_density = nn.Linear(self.d_model, self.n_token[6])
+        # self.proj_beat_density = nn.Linear(self.d_model, self.n_token[2])
+        # self.proj_pitch = nn.Linear(self.d_model, self.n_token[3])
+        # self.proj_duration = nn.Linear(self.d_model, self.n_token[4])
+        # self.proj_instr = nn.Linear(self.d_model, self.n_token[5])
+        # self.proj_onset_density = nn.Linear(self.d_model, self.n_token[6])
 
     def compute_loss(self, predict, target, loss_mask):
         loss = self.loss_func(predict, target)
@@ -189,7 +190,13 @@ class CMT(nn.Module):
         emb_instr = self.encoder_emb_instr(x[..., 5])
         emb_onset_density = self.encoder_emb_onset_density(x[..., 6])
         emb_time_encoding = self.encoder_emb_time_encoding(x[..., 7])
-
+        # print(emb_barbeat.size()),
+        # print(emb_type.size()),
+        # print(emb_beat_density.size()),
+        # print(emb_pitch.size()),
+        # print(emb_duration.size()),
+        # print(emb_instr.size()),
+        # print(emb_onset_density.size())
         embs = torch.cat(
             [
                 emb_barbeat,
@@ -200,7 +207,6 @@ class CMT(nn.Module):
                 emb_instr,
                 emb_onset_density
             ], dim=-1)
-
         encoder_emb_linear = self.encoder_in_linear(embs)
         # import ipdb;ipdb.set_trace()
         encoder_emb_time_linear = self.encoder_time_linear(emb_time_encoding)
@@ -220,17 +226,19 @@ class CMT(nn.Module):
             attn_mask = TriangularCausalMask(encoder_pos_emb.size(1), device=x.device)
             encoder_hidden = self.transformer_encoder(encoder_pos_emb, attn_mask)
             # print("forward decoder done")
-            y_type = self.proj_type(encoder_hidden[:, 7:, :])
-            return encoder_hidden, y_type
+            # y_type = self.proj_type(encoder_hidden[:, 7:, :])
+            # return encoder_hidden, y_type
+            return encoder_hidden
 
         else:
             encoder_mask = TriangularCausalMask(encoder_pos_emb.size(1), device=x.device)
             h = self.transformer_encoder(encoder_pos_emb, encoder_mask)  # y: s x d_model
             h = h[:, -1:, :]
             h = h.squeeze(0)
-            y_type = self.proj_type(h)
+            # y_type = self.proj_type(h)
 
-            return h, y_type
+            # return h, y_type
+            return h
 
     def forward_output(self, h, y):
         # for training
@@ -240,15 +248,19 @@ class CMT(nn.Module):
         y_concat_type = torch.cat([h, tf_skip_type], dim=-1)
         y_ = self.project_concat_type(y_concat_type)
 
-        y_barbeat = self.proj_barbeat(y_)
-        y_beat_density = self.proj_beat_density(y_)
-        y_pitch = self.proj_pitch(y_)
-        y_duration = self.proj_duration(y_)
-        y_instr = self.proj_instr(y_)
-        y_onset_density = self.proj_onset_density(y_)
+        y_hat = self.predictor(y_)
+
+        # y_barbeat = self.proj_barbeat(y_)
+        # y_beat_density = self.proj_beat_density(y_)
+        # y_pitch = self.proj_pitch(y_)
+        # y_duration = self.proj_duration(y_)
+        # y_instr = self.proj_instr(y_)
+        # y_onset_density = self.proj_onset_density(y_)
         # import ipdb;ipdb.set_trace()
 
-        return y_barbeat, y_pitch, y_duration, y_instr, y_onset_density, y_beat_density
+        # return y_barbeat, y_pitch, y_duration, y_instr, y_onset_density, y_beat_density
+
+        return y_hat
 
     def forward_output_sampling(self, h, y_type, recurrent=True):
         '''
@@ -447,35 +459,37 @@ class CMT(nn.Module):
         target = kwargs['target']
         loss_mask = kwargs['loss_mask']
         init_token = kwargs['init_token']
-        h, y_type = self.forward_hidden(x, memory=None, is_training=True, init_token=init_token)
-        y_barbeat, y_pitch, y_duration, y_instr, y_onset_density, y_beat_density = self.forward_output(h, target)
+        h = self.forward_hidden(x, memory=None, is_training=True, init_token=init_token)
+        y_hat = self.forward_output(h, target)
 
         # reshape (b, s, f) -> (b, f, s)
-        y_barbeat = y_barbeat[:, ...].permute(0, 2, 1)
-        y_type = y_type[:, ...].permute(0, 2, 1)
-        y_pitch = y_pitch[:, ...].permute(0, 2, 1)
-        y_duration = y_duration[:, ...].permute(0, 2, 1)
-        y_instr = y_instr[:, ...].permute(0, 2, 1)
-        y_onset_density = y_onset_density[:, ...].permute(0, 2, 1)
-        y_beat_density = y_beat_density[:, ...].permute(0, 2, 1)
+        # y_barbeat = y_barbeat[:, ...].permute(0, 2, 1)
+        # y_type = y_type[:, ...].permute(0, 2, 1)
+        # y_pitch = y_pitch[:, ...].permute(0, 2, 1)
+        # y_duration = y_duration[:, ...].permute(0, 2, 1)
+        # y_instr = y_instr[:, ...].permute(0, 2, 1)
+        # y_onset_density = y_onset_density[:, ...].permute(0, 2, 1)
+        # y_beat_density = y_beat_density[:, ...].permute(0, 2, 1)
 
         # loss
-        loss_barbeat = self.compute_loss(
-            y_barbeat, target[..., 0], loss_mask)
-        loss_type = self.compute_loss(
-            y_type, target[..., 1], loss_mask)
-        loss_beat_density = self.compute_loss(
-            y_beat_density, target[..., 2], loss_mask)
-        loss_pitch = self.compute_loss(
-            y_pitch, target[..., 3], loss_mask)
-        loss_duration = self.compute_loss(
-            y_duration, target[..., 4], loss_mask)
-        loss_instr = self.compute_loss(
-            y_instr, target[..., 5], loss_mask)
-        loss_onset_density = self.compute_loss(
-            y_onset_density, target[..., 6], loss_mask)
+        loss = self.compute_loss(
+            y_hat, target, loss_mask)
+        # loss_barbeat = self.compute_loss(
+        #     y_barbeat, target[..., 0], loss_mask)
+        # loss_type = self.compute_loss(
+        #     y_type, target[..., 1], loss_mask)
+        # loss_beat_density = self.compute_loss(
+        #     y_beat_density, target[..., 2], loss_mask)
+        # loss_pitch = self.compute_loss(
+        #     y_pitch, target[..., 3], loss_mask)
+        # loss_duration = self.compute_loss(
+        #     y_duration, target[..., 4], loss_mask)
+        # loss_instr = self.compute_loss(
+        #     y_instr, target[..., 5], loss_mask)
+        # loss_onset_density = self.compute_loss(
+        #     y_onset_density, target[..., 6], loss_mask)
 
-        return loss_barbeat, loss_type, loss_pitch, loss_duration, loss_instr, loss_onset_density, loss_beat_density
+        return loss
 
     def forward(self, **kwargs):
         if kwargs['is_train']:

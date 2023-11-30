@@ -16,7 +16,8 @@ import utils
 from utils import log, Saver, network_paras
 from model import CMT
 
-from nesmdb import Nesmdb
+# from nesmdb import Nesmdb
+from my_classes import NESMVDBDataset
 
 def train_dp():
     parser = argparse.ArgumentParser(description="Args for training CMT")
@@ -61,7 +62,8 @@ def train_dp():
     n_epoch = args.epochs
     max_grad_norm = 3
 
-    nesmdb = Nesmdb(args.train_data)
+    train_data = np.load(args.train_data, allow_pickle=True)
+    nesmdb = NESMVDBDataset(train_data)
     nesmdb_loader = DataLoader(nesmdb, batch_size=batch_size, shuffle=True, drop_last=True)
     #quit()
 
@@ -105,7 +107,7 @@ def train_dp():
 
     # init
 
-    net = torch.nn.DataParallel(CMT(decoder_n_class, init_n_class))
+    net = torch.nn.DataParallel(CMT(decoder_n_class, init_n_class, output_size=405)) # 405 qtt of games
 
     if torch.cuda.is_available():
         net.cuda()
@@ -164,9 +166,7 @@ def train_dp():
                 batch_init = batch_init.cuda()
 
             # run
-            losses = net(is_train=True, x=batch_x, target=batch_y, loss_mask=batch_mask, init_token=batch_init)
-            losses = [l.sum() for l in losses]
-            loss = (losses[0] + losses[1] + losses[2] + losses[3] + losses[4] + losses[5] + losses[6]) / 7
+            loss = net(is_train=True, x=batch_x, target=batch_y, loss_mask=batch_mask, init_token=batch_init)
 
             # Update
             net.zero_grad()
@@ -178,16 +178,14 @@ def train_dp():
             # print
             sys.stdout.write(
                 '{}/{} | Loss: {:.3f} | barbeat {:.3f}, type {:.3f}, pitch {:.3f}, duration {:.3f}, instr {:.3f}, strength {:.3f}, density {:.3f}\r'.format(
-                    bidx, num_batch, float(loss), losses[0], losses[1], losses[2], losses[3], losses[4], losses[5],
-                    losses[6]))
+                    bidx, num_batch, float(loss)))
             sys.stdout.flush()
 
             # acc
-            acc_losses += np.array([l.item() for l in losses])
-            acc_loss += loss.item()
+            acc_losses += loss
 
             # log
-            saver_agent.add_summary('batch loss', loss.item())
+            saver_agent.add_summary('batch loss', loss)
 
         # epoch loss
         runtime = time.time() - start_time
@@ -196,8 +194,7 @@ def train_dp():
         log('-' * 80)
         log(time.ctime() + ' epoch: {}/{} | Loss: {:.3f} | time: {}'.format(
             epoch, n_epoch, epoch_loss, str(datetime.timedelta(seconds=runtime))))
-        each_loss_str = 'barbeat {:.3f}, type {:.3f}, pitch {:.3f}, duration {:.3f}, instr {:.3f}, strength {:.3f}, density {:.3f}\r'.format(
-            acc_losses[0], acc_losses[1], acc_losses[2], acc_losses[3], acc_losses[4], acc_losses[5], acc_losses[6])
+        each_loss_str = 'prediction {:.3f}\r'.format(acc_losses)
         log('each loss > ' + each_loss_str)
 
         saver_agent.add_summary('epoch loss', epoch_loss)
